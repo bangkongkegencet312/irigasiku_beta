@@ -85,7 +85,7 @@ const styles = {
   },
 
   title: {
-    fontSize: "12px"
+    fontSize: "13px"
   },
 
   value: {
