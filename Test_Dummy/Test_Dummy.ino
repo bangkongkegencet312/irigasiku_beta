@@ -1,7 +1,7 @@
 #include <WiFi.h>
 
 // Ganti dengan WiFi kamu
-const char* ssid = "NAMA_WIFI"; // isi dengan nama wifi
+const char* ssid = "Hantu"; // isi dengan nama wifi
 const char* password = "PASSWORD_WIFI"; // isi dengan password wifi
 
 // verified connect wifi from micon
