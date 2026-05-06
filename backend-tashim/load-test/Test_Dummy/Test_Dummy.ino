@@ -2,8 +2,8 @@
 #include <PubSubClient.h> 
 #include <WiFiClientSecure.h> // Wajib untuk port 8883
 
-const char* ssid = "XPR9FE"; 
-const char* password = "a87acz6sczsay8t";
+const char* ssid = "FAA WIFI"; 
+const char* password = "ADAM KANCIL";
 
 // Konfigurasi MQTT HiveMQ
 const char* mqtt_server = "9575f087603642b38802e20db41742bf.s1.eu.hivemq.cloud"; 
@@ -72,5 +72,5 @@ void loop() {
   client.publish("tetomiku/sensor/ph", strPh);
   
   Serial.println("Data terkirim ke MQTT...");
-  delay(100); // Kecepatan tinggi untuk load testing
+  delay(20); // Kecepatan tinggi untuk load testing
 }
