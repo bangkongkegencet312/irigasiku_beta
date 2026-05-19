@@ -2,73 +2,72 @@ import mqtt from "mqtt"
 import useIoTStore from "../store/iotStore"
 import { MODE } from "../config"
 
-// ===== HELPER =====
-const updateStore = (data) => {
+const updateStore = (newData) => {
   const store = useIoTStore.getState()
+  const currentSensor = store.sensor
+  const mergedData = { ...currentSensor, ...newData }
 
-  store.setSensorData(data)
+  store.setSensorData(mergedData)
   store.addHistory({
-    time: new Date().toLocaleTimeString(),
-    ...data
+    time: Date.now(), 
+    ...mergedData
   })
 }
 
-// =========================
-// 🟢 MOCK MODE
-// =========================
-if (MODE === "MOCK") {
-  console.log("🧪 MODE: MOCK")
-
-  setInterval(() => {
-    const fakeData = {
-      ph: +(Math.random() * 3 + 6).toFixed(1),
-      temp: +(Math.random() * 10 + 25).toFixed(1),
-      turbidity: Math.floor(Math.random() * 30)
-    }
-
-    updateStore(fakeData)
-
-  }, 3000)
-}
-
-// =========================
-// 🔵 MQTT MODE
-// =========================
 if (MODE === "MQTT") {
-  console.log("📡 MODE: MQTT")
+  console.log("📡 MODE: MQTT ACTIVE (WATCHDOG ENABLED)")
 
-  const client = mqtt.connect("wss://broker.hivemq.com:8884/mqtt")
+  const client = mqtt.connect("wss://9575f087603642b38802e20db41742bf.s1.eu.hivemq.cloud:8884/mqtt", {
+    username: "tetomiku",
+    password: "TetoMiku1",
+    reconnectPeriod: 1000,
+    connectTimeout: 30 * 1000,
+  })
+
+  // 👇 FITUR BARU: WATCHDOG TIMER
+  let watchdog = null;
+
+  const resetWatchdog = () => {
+    // Bersihkan timer lama setiap ada data masuk
+    clearTimeout(watchdog);
+    
+    // Set status jadi Connected (Hijau) karena data masuk!
+    useIoTStore.getState().setSettings("isConnected", true);
+    
+    // Set timer baru: Kalau 15 detik ke depan diam saja, putuskan koneksi!
+    watchdog = setTimeout(() => {
+      console.log("⏳ 15 Detik tidak ada data. ESP32 Offline!");
+      useIoTStore.getState().setSettings("isConnected", false);
+    }, 15000); 
+  };
 
   client.on("connect", () => {
-    console.log("MQTT Connected")
-    client.subscribe("irigasiku/sensor")
+    console.log("✅ Terhubung ke Server Broker HiveMQ");
+    client.subscribe("sensor/ph");
+    client.subscribe("sensor/tds");
+    client.subscribe("sensor/suhu");
+    
+    // Jangan ubah isConnected jadi 'true' di sini!
+    // Biarkan tetap 'false' agar Dashboard nampilin layar "Menunggu Sinyal"
+    // sampai ada data beneran yang masuk dari ESP32.
   })
 
   client.on("message", (topic, message) => {
-    try {
-      const data = JSON.parse(message.toString())
-      updateStore(data)
-    } catch (err) {
-      console.log("MQTT ERROR:", err)
-    }
+    const rawValue = message.toString()
+    const value = Number(rawValue) || 0
+    let sensorUpdate = {}
+
+    if (topic === "sensor/ph") sensorUpdate = { ph: value }
+    else if (topic === "sensor/tds") sensorUpdate = { turbidity: value } 
+    else if (topic === "sensor/suhu") sensorUpdate = { temp: value }
+    
+    updateStore(sensorUpdate)
+    
+    // Panggil anjing penjaga setiap kali data dari backend masuk
+    resetWatchdog();
   })
-}
 
-// =========================
-// 🟣 API MODE
-// =========================
-if (MODE === "API") {
-  console.log("🌐 MODE: API")
-
-  setInterval(async () => {
-    try {
-      const res = await fetch("https://dummy-api-irigasi.com/data")
-      const data = await res.json()
-
-      updateStore(data)
-
-    } catch (err) {
-      console.log("API ERROR:", err)
-    }
-  }, 5000)
+  client.on("close", () => useIoTStore.getState().setSettings("isConnected", false))
+  client.on("offline", () => useIoTStore.getState().setSettings("isConnected", false))
+  client.on("error", () => useIoTStore.getState().setSettings("isConnected", false))
 }
