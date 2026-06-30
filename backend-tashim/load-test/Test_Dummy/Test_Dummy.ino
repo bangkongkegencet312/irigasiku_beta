@@ -1,15 +1,16 @@
 #include <WiFi.h>
 #include <PubSubClient.h> 
-#include <WiFiClientSecure.h> // Wajib untuk port 8883
+#include <WiFiClientSecure.h> // Wajib untuk port aman 8883
 
-const char* ssid = "FAA WIFI"; 
-const char* password = "ADAM KANCIL";
+// Konfigurasi WiFi
+const char* ssid = "XPR9FE"; 
+const char* password = "a87acz6sczsay8t";
 
 // Konfigurasi MQTT HiveMQ
 const char* mqtt_server = "9575f087603642b38802e20db41742bf.s1.eu.hivemq.cloud"; 
 const int mqtt_port = 8883;
-const char* mqtt_user = "tetomiku";   
-const char* mqtt_pass = "TetoMiku1";  
+const char* mqtt_user = "ooharamiyazono"; // Pastikan username ini sudah sesuai di HiveMQ Anda
+const char* mqtt_pass = "OoharaMiyazono1";  
 
 WiFiClientSecure espClient; 
 PubSubClient client(espClient);
@@ -31,7 +32,10 @@ void reconnect() {
     if (client.connect(clientId.c_str(), mqtt_user, mqtt_pass)) {
       Serial.println("Terhubung ke MQTT!");
     } else {
-      delay(2000);
+      Serial.print("Gagal, rc=");
+      Serial.print(client.state());
+      Serial.println(" mencoba lagi dalam 5 detik...");
+      delay(5000);
     }
   }
 }
@@ -46,7 +50,7 @@ void setup() {
   randomSeed(micros());  
   connectWiFi();
   
-  espClient.setInsecure(); // Abaikan pengecekan sertifikat SSL
+  espClient.setInsecure(); // Mengabaikan pemeriksaan sertifikat SSL terenkripsi
   client.setServer(mqtt_server, mqtt_port);
 }
 
@@ -56,21 +60,23 @@ void loop() {
   }
   client.loop();
 
-  float suhu = randomFloat(27.0, 30.0);
-  float ntu  = randomFloat(0.0, 12.0);
-  float ph   = randomFloat(6.0, 8.0);
+  // Generasi data acak (dummy) parameter sensor
+  float phValue     = randomFloat(6.0, 8.0);
+  float tdsValue    = randomFloat(100.0, 800.0);
+  float temperature = randomFloat(26.0, 31.0);
 
-  // Konversi float ke string [cite: 7]
-  char strSuhu[8], strNtu[8], strPh[8];
-  dtostrf(suhu, 1, 2, strSuhu);
-  dtostrf(ntu, 1, 2, strNtu);
-  dtostrf(ph, 1, 2, strPh);
-
-  // Publish ke topik MQTT
-  client.publish("tetomiku/sensor/suhu", strSuhu);
-  client.publish("tetomiku/sensor/ntu", strNtu);
-  client.publish("tetomiku/sensor/ph", strPh);
+  // Kirim data ke masing-masing topik target
+  client.publish("sensor/ph", String(phValue, 2).c_str());
+  client.publish("sensor/tds", String(tdsValue, 0).c_str());
+  client.publish("sensor/suhu", String(temperature, 2).c_str());
   
-  Serial.println("Data terkirim ke MQTT...");
-  delay(20); // Kecepatan tinggi untuk load testing
+  // Monitoring melalui Serial Monitor
+  Serial.println("========== DATA TERKIRIM ==========");
+  Serial.print("pH   : "); Serial.println(phValue, 2);
+  Serial.print("TDS  : "); Serial.print(tdsValue, 0); Serial.println(" ppm");
+  Serial.print("Suhu : "); Serial.print(temperature, 2); Serial.println(" C");
+  Serial.println("===================================");
+  
+  // Jeda waktu pengiriman data (diubah ke 2 detik agar tidak di-banned/disconnect oleh broker)
+  delay(2000); 
 }
